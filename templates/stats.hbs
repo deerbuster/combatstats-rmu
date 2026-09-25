@@ -1,0 +1,28 @@
+<div class="cs-body">
+  <header class="cs-heading"><div><p class="cs-eyebrow">ROLEMASTER UNIFIED</p><h2>Every battle leaves a record.</h2></div>
+    <span class="cs-status">{{#if enabled}}Recording{{else}}Paused{{/if}}</span></header>
+  {{#unless hasGM}}<p class="cs-warning">A GM must be connected for automatic tracking.</p>{{/unless}}
+  <div class="cs-toolbar">
+    <label>View<select name="group">{{#each groups}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
+    <label>History<select name="scope">{{#each scopes}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
+    {{#if rolls}}<label>Roll scope<select name="rollScope">{{#each rollScopes}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>{{/if}}
+    {{#if resistanceView}}<label>Resistance type<select name="resistance">{{#each resistanceTypes}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>{{/if}}
+    {{#if writer}}<button type="button" data-action="roster">Friendly roster</button><button type="button" data-action="correct">Correct stats</button>{{/if}}
+    <button type="button" data-action="export">Export</button>
+  </div>
+  {{#if criticals}}<p class="cs-note">Criticals are counted by severity before negation when the attack is applied. Negated criticals may be corrected by the GM.</p>{{/if}}
+  {{#if rolls}}<p class="cs-note">Raw d100 totals before bonuses, only when the roll actually open-ends. Attacks open upward only. All combat rolls includes attacks and other rolls made during an encounter. “—” means no qualifying roll. ★ marks the highest upward or lowest downward record.</p>{{/if}}
+  {{#if resistanceView}}<p class="cs-note">Successful and failed resistance rolls, grouped by the resistance actually used. Willing targets who choose not to resist are excluded.</p>{{/if}}
+  {{#if bleeding}}<p class="cs-note">Rates are cumulative hits/round newly inflicted or suffered, not current bleeding. Hits lost counts actual combat-upkeep damage and is separate from hits dealt/taken. Rest and manual bleeding damage require a correction.</p>{{/if}}
+  <div class="cs-table-scroll"><table class="cs-table">
+    <thead><tr><th scope="col">Character</th>{{#each columns}}<th scope="col">{{name}}</th>{{/each}}</tr></thead>
+    <tbody>{{#each rows}}<tr><th scope="row">{{name}}</th>{{#each cells}}<td>{{value}}{{#if leader}} <span class="cs-star" title="{{leaderLabel}}" aria-label="Category leader">★</span>{{/if}}</td>{{/each}}</tr>
+    {{else}}<tr><td colspan="12" class="cs-empty">The GM needs to select a friendly roster. New events will then appear here.</td></tr>{{/each}}</tbody>
+  </table></div>
+  <p class="cs-note">★ Category leader; ties share the star. Zero counters have no leader. Accuracy = successful strikes ÷ (strikes + misses + fumbles). Hits dealt/taken include instantaneous hit + critical damage only.</p>
+  {{#if gm}}<details class="cs-audit"><summary>Recent events · {{totalEvents}} recorded</summary>
+    <p class="cs-note">Showing the latest 40 in this view. Undo only changes statistics, never the character or combat.</p>
+    {{#each events}}<div class="cs-event {{#if void}}cs-void{{/if}}"><div><strong>{{kind}}</strong><small>{{when}} · Round {{round}}</small><p>{{detail}}</p></div>
+      {{#if ../writer}}<button type="button" data-action="toggle" data-event="{{id}}">{{#if void}}Restore{{else}}Undo{{/if}}</button>{{/if}}</div>{{/each}}
+  </details>{{/if}}
+</div>
