@@ -3,7 +3,7 @@
     <span class="cs-status">{{#if enabled}}Recording{{else}}Paused{{/if}}</span></header>
   {{#unless hasGM}}<p class="cs-warning">A GM must be connected for automatic tracking.</p>{{/unless}}
   <div class="cs-toolbar">
-    <label>View<select name="group">{{#each groups}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
+    <label>Stat category<select name="group">{{#each groups}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
     <label>Battle / campaign<select name="scope">{{#each scopes}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
     {{#if rolls}}<label>Roll scope<select name="rollScope">{{#each rollScopes}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>{{/if}}
     {{#if resistanceView}}<label>Resistance type<select name="resistance">{{#each resistanceTypes}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>{{/if}}
