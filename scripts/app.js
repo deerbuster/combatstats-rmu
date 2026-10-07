@@ -1,5 +1,6 @@
 import {ID, GROUPS, KEYS, DERIVED_KEYS, RESISTANCES, totals, leaders} from "./model.js";
 import {state, roster, isWriter, mutate, record} from "./store.js";
+import {assignHistoryToBattle, combatSnapshot, findCombat} from "./battles.js";
 const escape = value => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const {ApplicationV2, HandlebarsApplicationMixin, DialogV2} = foundry.applications.api;
 const liveApps = new Set();
@@ -10,7 +11,7 @@ export class CombatStatsApp extends HandlebarsApplicationMixin(ApplicationV2) {
     position: {width: 1000, height: 620},
     actions: {
       roster: CombatStatsApp.editRoster, correct: CombatStatsApp.correct,
-      export: CombatStatsApp.exportData, toggle: CombatStatsApp.toggleEvent
+      export: CombatStatsApp.exportData, toggle: CombatStatsApp.toggleEvent, adopt: CombatStatsApp.adoptBattle
     }
   };
   static PARTS = {body: {template: "modules/combatstats-rmu/templates/stats.hbs"}};
@@ -24,8 +25,14 @@ export class CombatStatsApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const stats = totals(data.events, ids, this.encounter, this.rollScope, this.resistance);
     const columns = GROUPS[this.group].columns;
     const crowns = Object.fromEntries(columns.map(([k]) => [k, leaders(stats, k)]));
-    const encounterIds = [...new Set(Object.values(data.events).map(e => e.encounter))].filter(id => id !== "outside");
-    const names = id => game.combats.get(id)?.name || Object.values(data.events).find(e => e.encounter === id && e.battleName)?.battleName || `Battle ${id.slice(-6)}`;
+    const encounterIds = [...new Set([...Object.keys(data.battles ?? {}), ...Object.values(data.events).map(e => e.encounter)])].filter(id => id && id !== "outside");
+    const names = id => data.battles?.[id]?.name || game.combats.get(id)?.name || Object.values(data.events).find(e => e.encounter === id && e.battleName)?.battleName || `Battle ${id.slice(-6)}`;
+    const dateTime = value => value == null ? null : new Date(value).toLocaleString(undefined, {timeZoneName: "short"});
+    const battle = data.battles?.[this.encounter];
+    const battleInfo = battle ? {name: battle.name,
+      start: (dateTime(battle.startedAt) ?? (battle.status === "pending" ? "Not started" : "Unknown — started before tracking")) + (battle.startAssumed ? " (assumed from tracking)" : ""),
+      end: dateTime(battle.endedAt) ?? (battle.status === "historical" ? "Unknown — end was not observed" : battle.status === "ended" ? "Unknown" : "Not ended"),
+      tracked: dateTime(battle.trackedAt)} : null;
     const events = Object.values(data.events).filter(e => this.encounter === "all" || e.encounter === this.encounter)
       .sort((a, b) => b.at - a.at).slice(0, 40).map(e => ({
         id: e.id, void: e.void, kind: e.kind, when: new Date(e.at).toLocaleString(), round: e.round,
@@ -35,9 +42,10 @@ export class CombatStatsApp extends HandlebarsApplicationMixin(ApplicationV2) {
     return {
       enabled: game.settings.get(ID, "enabled"), gm: game.user.isGM, writer: isWriter(),
       hasGM: !!game.users.activeGM, totalEvents: Object.keys(data.events).length,
+      battleInfo,
       groups: Object.entries(GROUPS).map(([id, g]) => ({id, label: g.label, selected: id === this.group})),
       scopes: [{id: "all", label: "Campaign totals"}, {id: "outside", label: "Outside battles"},
-        ...encounterIds.map(id => ({id, label: names(id)}))].map(s => ({...s, selected: s.id === this.encounter})),
+        ...encounterIds.map(id => ({id, label: `${names(id)} · ${dateTime(data.battles?.[id]?.startedAt ?? data.battles?.[id]?.trackedAt) ?? id.slice(-6)}`}))].map(s => ({...s, selected: s.id === this.encounter})),
       columns: columns.map(([key, name]) => ({key, name})),
       rows: ids.map(id => ({id, name: game.actors.get(id)?.name ?? "Removed character",
         cells: columns.map(([key]) => ({value: stats[id][key] == null ? "—" : ["accuracy", "rrRate"].includes(key)
@@ -92,6 +100,18 @@ export class CombatStatsApp extends HandlebarsApplicationMixin(ApplicationV2) {
     await record({id: `manual:${foundry.utils.randomID()}`, kind: `Correction: ${result.reason}`,
       rollKind: this.rollScope === "all" ? "character" : this.rollScope,
       ...(this.encounter !== "all" ? {encounter: this.encounter} : {}), actors: {[result.actor]: {[result.key]: result.amount}}});
+  }
+  static async adoptBattle() {
+    if (!isWriter()) return ui.notifications.warn("Use the active GM account to assign battle history.");
+    const combat = findCombat();
+    if (!combat) return ui.notifications.warn("Select the running combat encounter first.");
+    const snapshot = combatSnapshot(combat);
+    const confirmed = await DialogV2.confirm({window: {title: "Assign existing statistics to current battle"},
+      content: `<p>Move all ${Object.keys(state().events).length} recorded events into <strong>${escape(snapshot.name)}</strong>?</p><p>The earliest event becomes its assumed start time. Campaign totals and original event timestamps stay unchanged. Previous battle assignments are retained in the JSON export.</p>`, rejectClose: false});
+    if (!confirmed) return;
+    await mutate(data => assignHistoryToBattle(data, snapshot));
+    this.encounter = snapshot.id;
+    this.render();
   }
   static async toggleEvent(event, button) {
     if (!isWriter()) return;

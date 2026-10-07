@@ -2,6 +2,7 @@ import {ID} from "./model.js";
 import {registerSettings, isWriter, roster} from "./store.js";
 import {CombatStatsApp, openStats, refreshStats} from "./app.js";
 import {installAdapter} from "./adapter.js";
+import {installBattles} from "./battles.js";
 
 Hooks.once("init", () => {
   registerSettings(refreshStats);
@@ -11,6 +12,7 @@ Hooks.once("init", () => {
 });
 Hooks.once("ready", async () => {
   game.modules.get(ID).api = {open: openStats};
+  await installBattles();
   await installAdapter();
   if (isWriter() && !roster().length) ui.notifications.info("CombatStats: open Module Settings → CombatStats for RMU and select your friendly roster to begin tracking.");
 });

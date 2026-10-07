@@ -1,8 +1,14 @@
-# CombatStats for RMU — 0.2.0 prerelease
+# CombatStats for RMU — 0.3.0 prerelease
 
 Standalone module targeting **Foundry VTT 14, build 367**. Developed against **RMU 1.4.91**. No RMU source files are modified or bundled. This is an initial prerelease, not yet verified in a live Foundry world.
 
 Version 0.2.0 adds **Conditions dealt**, checked against the installed **RMU 1.4.106** attack application and condition implementations. All categories support per-battle and campaign totals. New dealt-condition counters start recording after this update; old events cannot be backfilled automatically.
+
+Version 0.3.0 creates persistent battle records independently of statistics, including empty combats and combats already running when the module loads. Selecting a battle shows its start, end, and tracking-start dates/times in your browser's local time zone. Start is recorded on the first observed transition into round 1; end is recorded when Foundry ends/deletes the combat. Switching tracker selections or scenes does not end a battle. If tracking missed a transition, the time is shown as unknown rather than invented.
+
+### Assign the existing statistics to your current battle
+
+As the active GM, select the running combat in Foundry, open CombatStats, and click **Assign existing stats to current battle**. Confirm the displayed battle and event count. This moves **all** recorded events into that battle and assumes it started at the earliest recorded event. The start is visibly labeled as assumed. Campaign totals and event timestamps stay unchanged; previous assignments are preserved in the JSON export. Use this once to group data collected before battle tracking was working. It does not reconstruct unrecorded events.
 
 ## Install
 
@@ -18,7 +24,7 @@ Manifest URL:
 https://raw.githubusercontent.com/deerbuster/combatstats-rmu/main/module.json
 ```
 
-The manifest currently installs the **v0.2.0 prerelease**. See [releases](https://github.com/deerbuster/combatstats-rmu/releases) for the ZIP and release-specific manifest. Report reproducible problems through [GitHub Issues](https://github.com/deerbuster/combatstats-rmu/issues).
+The manifest currently installs the **v0.3.0 prerelease**. See [releases](https://github.com/deerbuster/combatstats-rmu/releases) for the ZIP and release-specific manifest. Report reproducible problems through [GitHub Issues](https://github.com/deerbuster/combatstats-rmu/issues).
 
 Optional script macro:
 
@@ -80,7 +86,7 @@ Included tests run without dependencies on Node 24:
 npm test
 ```
 
-20 tests cover damage/bleeding separation, duplicate handling, GM-only writing, self-inflicted fumble consequences, critical severities, condition countdown, derived accuracy, open-ended chains and scopes, resistance grouping, ties, undo/filter behavior, post-negation dealt conditions, caster attribution, and battle/campaign aggregation for every counter.
+25 tests cover damage/bleeding separation, duplicate handling, GM-only writing, self-inflicted fumble consequences, critical severities, condition countdown, derived accuracy, open-ended chains and scopes, resistance grouping, ties, undo/filter behavior, post-negation dealt conditions, caster attribution, battle/campaign aggregation, battle lifecycle timestamps, mid-battle adoption, scene-aware matching, and preservation of totals during explicit history assignment.
 
 An isolated Edge browser harness also passed 26 parser/context checks and rendered four table views with no page errors. It uses the installed Foundry dice tooltip template. These tests do **not** substitute for a live Foundry integration test.
 
@@ -100,7 +106,7 @@ Use a disposable test world or test encounter with two linked friendly character
 
 ## Upgrade
 
-Replace this module folder with the next release while the world is closed. The ledger and roster live in world settings under `combatstats-rmu`, not in this folder. Do not delete those settings. The current schema is version 1; no world migration is performed.
+Replace this module folder with the next release while the world is closed. The ledger and roster live in world settings under `combatstats-rmu`, not in this folder. Do not delete those settings. Schema version 2 adds battle metadata while preserving existing events. Events already linked to a battle retain that association. Outside-battle events are moved only through the explicit GM assignment action described above.
 
 ## Source references
 

@@ -1,6 +1,7 @@
 import {ID, SEVERITIES, appliedAttack, conditionsDealt, conditionDelta, positive} from "./model.js";
 import {context, isWriter, record, roster} from "./store.js";
 import {readOpenRolls, readResistance} from "./chat-records.js";
+import {findCombat} from "./battles.js";
 
 let enabled = false;
 let upkeepAPI;
@@ -21,6 +22,10 @@ function compactActors(actors) {
   const allowed = new Set(roster());
   return Object.fromEntries(Object.entries(actors).filter(([id]) => allowed.has(id)));
 }
+function messageContext(message, result) {
+  const actorIds = [actorId(sourceActor(message, result)), actorId(tokenActor(message, result?.defenderTokenId)), actorId(speakerActor(message))].filter(Boolean);
+  return context(findCombat({sceneId: message.speaker?.scene, actorIds}));
+}
 function receipt(message, result, applied) {
   if (!result) return null;
   let actor;
@@ -36,7 +41,7 @@ function receipt(message, result, applied) {
     const target = tokenActor(message, result.defenderTokenId) ?? speakerActor(message);
     const targetId = actorId(target);
     if (!targetId) return null;
-    return {id: `attack:${message.id}`, kind: "Damage applied", ...context(),
+    return {id: `attack:${message.id}`, kind: "Damage applied", ...messageContext(message, result),
       actors: compactActors({[targetId]: {hitsTaken: appliedAttack(result).hitsDealt, ...receivedCriticals(result)},
         ...(result.attackerTokenId && actorId(tokenActor(message, result.attackerTokenId)) !== targetId
           ? {[actorId(tokenActor(message, result.attackerTokenId))]: {hitsDealt: appliedAttack(result).hitsDealt, bleedInflicted: appliedAttack(result).bleedInflicted, ...conditionsDealt(result)}} : {})})};
@@ -48,7 +53,7 @@ function receipt(message, result, applied) {
     const targetId = actorId(tokenActor(message, result.defenderTokenId));
     if (targetId) actors[targetId] = {...actors[targetId], hitsTaken: delta.hitsDealt ?? 0, ...receivedCriticals(result)};
   }
-  return {id: `attack:${message.id}`, kind: "Attack", ...context(), actors: compactActors(actors)};
+  return {id: `attack:${message.id}`, kind: "Attack", ...messageContext(message, result), actors: compactActors(actors)};
 }
 function receivedCriticals(result) {
   const dealt = appliedAttack(result);
@@ -62,12 +67,13 @@ function createMessage(message) {
   const rollActor = isAttack ? sourceActor(message, rmu.result) : speakerActor(message);
   const id = actorId(rollActor);
   if (id && roster().includes(id) && typeof DOMParser !== "undefined") {
-    const rollKind = isAttack ? "attack" : game.combat?.started ? "combat" : "character";
+    const rollContext = messageContext(message, rmu?.result);
+    const rollKind = isAttack ? "attack" : rollContext.encounter !== "outside" ? "combat" : "character";
     readOpenRolls(message).forEach((roll, i) => record({id: `roll:${message.id}:${i}`, kind: `Open-ended ${rollKind} roll`, rollKind,
-      actors: {[id]: {[roll.key]: roll.value}}}));
+      ...rollContext, actors: {[id]: {[roll.key]: roll.value}}}));
     const resistance = readResistance(message, key => game.i18n.localize(key));
     if (resistance) record({id: `rr:${message.id}`, kind: `${resistance.type} resistance: ${resistance.success ? "success" : "failure"}`,
-      actors: {[id]: {[`rr${resistance.type}${resistance.success ? "Success" : "Failure"}`]: 1}}});
+      ...rollContext, actors: {[id]: {[`rr${resistance.type}${resistance.success ? "Success" : "Failure"}`]: 1}}});
   }
   if (!rmu) return;
   const event = receipt(message, rmu.result, rmu.applied === true);
@@ -121,12 +127,12 @@ function beforeEffect(effect, changes, options) {
   const id = actorId(effect.parent);
   if (!roster().includes(id)) return;
   stamp(options, effect.uuid, {id: `condition:${foundry.utils.randomID()}`, kind: "Condition increased",
-    ...context(), actors: {[id]: delta}});
+    ...context(findCombat({actorIds: [id]})), actors: {[id]: delta}});
 }
 function createEffect(effect) {
   if (!enabled || !isWriter() || effect.parent?.documentName !== "Actor") return;
   const id = actorId(effect.parent);
-  return record({id: `condition:${effect.uuid}`, kind: "Condition applied", actors: {[id]: conditionDelta(null, effect.toObject())}});
+  return record({id: `condition:${effect.uuid}`, kind: "Condition applied", ...context(findCombat({actorIds: [id]})), actors: {[id]: conditionDelta(null, effect.toObject())}});
 }
 function updateEffect(effect, changes, options) {
   const event = options?.[ID]?.[effect.uuid];

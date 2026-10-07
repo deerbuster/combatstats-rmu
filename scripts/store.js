@@ -1,4 +1,5 @@
 import {ID, KEYS, RECORD_KEYS, DERIVED_KEYS, number, putEvent} from "./model.js";
+import {combatSnapshot, ensureBattle, findCombat} from "./battles.js";
 export const isWriter = () => game.user.isGM && game.users.activeGM?.id === game.user.id;
 export const state = () => game.settings.get(ID, "ledger");
 export const roster = () => game.settings.get(ID, "roster");
@@ -16,9 +17,10 @@ export function mutate(fn) {
   });
   return task;
 }
-export function context(combat = game.combat) {
-  return {encounter: combat?.started ? combat.id : "outside", round: combat?.round ?? 0,
-    battleName: combat?.started ? combat.name ?? "" : ""};
+export function context(combat = findCombat()) {
+  const snapshot = combat ? combatSnapshot(combat) : null;
+  return {encounter: snapshot?.started ? snapshot.id : "outside", round: snapshot?.round ?? 0,
+    battleName: snapshot?.started ? snapshot.name : ""};
 }
 export function record(event) {
   if (!isWriter() || !game.settings.get(ID, "enabled")) return;
@@ -30,7 +32,10 @@ export function record(event) {
   if (!Object.keys(event.actors).length) return;
   const stamped = {at: Date.now(), ...context(), ...event};
   // No enemy names, actor identities, or complete RMU results enter the shared ledger.
-  return mutate(next => putEvent(next, stamped));
+  return mutate(next => {
+    if (stamped.encounter !== "outside") ensureBattle(next, {id: stamped.encounter, name: stamped.battleName, started: true}, stamped.at);
+    return putEvent(next, stamped);
+  });
 }
 export function registerSettings(onChange) {
   game.settings.register(ID, "enabled", {name: "Record new combat statistics", scope: "world", config: true, type: Boolean, default: true, onChange});
