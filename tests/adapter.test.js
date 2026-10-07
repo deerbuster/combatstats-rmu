@@ -55,3 +55,25 @@ test('RMU lifecycle, multiplayer duplicate protection, conditions and bleeding s
   stats=totals(state().events,['a']);assert.equal(stats.a.hitsTaken,4);assert.equal(stats.a.fumbles,1,'fumble consequences do not add another fumble');
   assert.deepEqual(errors,[]);
 });
+
+test('conditions dealt use final effects, remain deduplicated, and follow the battle',async()=>{
+  game.combat={...game.combat,id:'battle-two',name:'Bridge battle'};
+  const result={attackerTokenId:'ta',defenderTokenId:'enemy',effects:[{effect:'Stun',rounds:[3,1,0]},{effect:'Prone'}]};
+  const hit=message('conditions-hit',result);
+  call('createChatMessage',hit);await flush();
+  assert.equal(totals(state().events,['a'],'battle-two').a.dealtProne,0);
+  // RMU removes a negated critical's effects before completing the chat update.
+  result.effects=[{effect:'Stun',rounds:[0,1,0]},{effect:'Staggered',value:3}];
+  apply(hit);await flush();call('updateChatMessage',hit,{flags:{rmu:{applied:true}}},{});await flush();
+  const stats=totals(state().events,['a'],'battle-two').a;
+  assert.equal(stats.dealtStun25,0);assert.equal(stats.dealtStun50,1);assert.equal(stats.dealtProne,0);assert.equal(stats.dealtStaggered,1);
+  assert.equal(stats.stun50,0,'dealt conditions do not increment suffered counters');
+  assert.equal(state().events['attack:conditions-hit'].battleName,'Bridge battle');
+  assert.equal(totals(state().events,['a'],'combat1').a.dealtStun50,0);
+  const rr=message('conditions-rr',{attackerTokenId:'ta',effects:[{effect:'Stun',rounds:[0,0,2]}]});
+  rr.speaker.token='tb';rr.speaker.actor='b';apply(rr);await flush();
+  assert.equal(totals(state().events,['a']).a.dealtStun75,1,'caster gets credit for RR-linked conditions');
+  assert.equal(totals(state().events,['b']).b.dealtStun75,0);
+  const self=message('fumble-condition',{effects:[{effect:'Prone'}]});apply(self);await flush();
+  assert.equal(totals(state().events,['a']).a.dealtProne,0,'source-free fumble consequence is not credited');
+});

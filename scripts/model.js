@@ -11,6 +11,9 @@ export const GROUPS = {
   conditions: {label: "Conditions suffered", columns: [
     ["stun25", "Stunned −25"], ["stun50", "Stunned −50"], ["stun75", "Stunned −75"],
     ["prone", "Knocked prone"], ["staggered", "Staggered"]]},
+  dealtConditions: {label: "Conditions dealt", columns: [
+    ["dealtStun25", "Stun −25 dealt"], ["dealtStun50", "Stun −50 dealt"], ["dealtStun75", "Stun −75 dealt"],
+    ["dealtProne", "Prone dealt"], ["dealtStaggered", "Staggered dealt"]]},
   bleeding: {label: "Bleeding", columns: [
     ["bleedInflicted", "Rate inflicted"], ["bleedSuffered", "Rate suffered"], ["bleedDamage", "Hits lost to bleeding"]]},
   rolls: {label: "Open-ended records", columns: [["openHigh", "Highest upward roll"], ["openLow", "Lowest downward roll"]]},
@@ -35,6 +38,20 @@ export function appliedAttack(result) {
     if (critical.conditionOnly) continue;
     const severity = String(critical.severityShortCode ?? "").toUpperCase();
     if (SEVERITIES.includes(severity)) stats[`critical${severity}`] = (stats[`critical${severity}`] ?? 0) + 1;
+  }
+  return stats;
+}
+
+// Final RMU result effects have already undergone critical negation. Count once
+// per applied result and severity, regardless of rounds, AP magnitude, or count.
+export function conditionsDealt(result) {
+  const stats = {};
+  for (const effect of result?.effects ?? []) {
+    if (effect.effect === "Stun") [25, 50, 75].forEach((severity, i) => {
+      if (positive(effect.rounds?.[i]) > 0) stats[`dealtStun${severity}`] = 1;
+    });
+    if (effect.effect === "Prone") stats.dealtProne = 1;
+    if (effect.effect === "Staggered") stats.dealtStaggered = 1;
   }
   return stats;
 }

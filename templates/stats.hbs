@@ -4,13 +4,14 @@
   {{#unless hasGM}}<p class="cs-warning">A GM must be connected for automatic tracking.</p>{{/unless}}
   <div class="cs-toolbar">
     <label>View<select name="group">{{#each groups}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
-    <label>History<select name="scope">{{#each scopes}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
+    <label>Battle / campaign<select name="scope">{{#each scopes}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
     {{#if rolls}}<label>Roll scope<select name="rollScope">{{#each rollScopes}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>{{/if}}
     {{#if resistanceView}}<label>Resistance type<select name="resistance">{{#each resistanceTypes}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>{{/if}}
     {{#if writer}}<button type="button" data-action="roster">Friendly roster</button><button type="button" data-action="correct">Correct stats</button>{{/if}}
     <button type="button" data-action="export">Export</button>
   </div>
   {{#if criticals}}<p class="cs-note">Criticals are counted by severity before negation when the attack is applied. Negated criticals may be corrected by the GM.</p>{{/if}}
+  {{#if dealtConditions}}<p class="cs-note">Counts condition results on applied attacks after negation, once per stun severity, prone, or staggered result—not rounds or AP. A prone result counts even if the target was already prone. Bleeding inflicted is shown in the Bleeding view. Tracking starts with this version; older results are not backfilled.</p>{{/if}}
   {{#if rolls}}<p class="cs-note">Raw d100 totals before bonuses, only when the roll actually open-ends. Attacks open upward only. All combat rolls includes attacks and other rolls made during an encounter. “—” means no qualifying roll. ★ marks the highest upward or lowest downward record.</p>{{/if}}
   {{#if resistanceView}}<p class="cs-note">Successful and failed resistance rolls, grouped by the resistance actually used. Willing targets who choose not to resist are excluded.</p>{{/if}}
   {{#if bleeding}}<p class="cs-note">Rates are cumulative hits/round newly inflicted or suffered, not current bleeding. Hits lost counts actual combat-upkeep damage and is separate from hits dealt/taken. Rest and manual bleeding damage require a correction.</p>{{/if}}

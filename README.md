@@ -1,6 +1,8 @@
-# CombatStats for RMU — 0.1.0 prerelease
+# CombatStats for RMU — 0.2.0 prerelease
 
 Standalone module targeting **Foundry VTT 14, build 367**. Developed against **RMU 1.4.91**. No RMU source files are modified or bundled. This is an initial prerelease, not yet verified in a live Foundry world.
+
+Version 0.2.0 adds **Conditions dealt**, checked against the installed **RMU 1.4.106** attack application and condition implementations. All categories support per-battle and campaign totals. New dealt-condition counters start recording after this update; old events cannot be backfilled automatically.
 
 ## Install
 
@@ -16,7 +18,7 @@ Manifest URL:
 https://raw.githubusercontent.com/deerbuster/combatstats-rmu/main/module.json
 ```
 
-The manifest currently installs the **v0.1.0 prerelease**. See [releases](https://github.com/deerbuster/combatstats-rmu/releases) for the ZIP and release-specific manifest. Report reproducible problems through [GitHub Issues](https://github.com/deerbuster/combatstats-rmu/issues).
+The manifest currently installs the **v0.2.0 prerelease**. See [releases](https://github.com/deerbuster/combatstats-rmu/releases) for the ZIP and release-specific manifest. Report reproducible problems through [GitHub Issues](https://github.com/deerbuster/combatstats-rmu/issues).
 
 Optional script macro:
 
@@ -37,6 +39,7 @@ game.modules.get("combatstats-rmu").api.open();
 | Times stunned | One application per affected severity: −25, −50, −75. Additional rounds at that severity count as a new application; normal countdown does not. Four rounds applied at once count once. |
 | Times knocked prone | A newly applied prone condition. Remaining prone does not increment it. |
 | Times staggered | A new stagger effect or an increase to an existing stagger effect. Paying off its AP does not increment it. |
+| Conditions dealt | Stun −25/−50/−75, prone, and staggered results on an applied attack after negation, credited to its attacker. One per affected category per result, not per round or AP. A prone result counts even if the target is already prone. RR-linked conditions credit the caster when RMU identifies one; source-free conditions and self-inflicted fumble consequences are not credited. |
 | Bleeding rate inflicted / suffered | Sum of newly applied hits-per-round rates. A 3 hits/round wound adds 3 once. Countdown or healing does not add anything. |
 | Bleeding damage | Actual HP lost to bleeding during RMU combat upkeep. A 3 hits/round wound that ticks twice adds 6. This never increases hits dealt/taken. |
 | Highest upward / lowest downward open-ended roll | Raw d100 dice-term total before bonuses, only if it actually open-ended. Includes the complete chain. Missing records display “—”. |
@@ -47,12 +50,14 @@ Open-ended record scopes: **all character rolls** (default), **all combat rolls*
 ## Stats page and history
 
 - Select a category and campaign totals or a recorded encounter. Outside-encounter events have a separate filter.
+- **Battle / campaign** applies to every category, including conditions dealt, resistance types, percentages, and open-ended records. Campaign percentages are recalculated from combined attempts; record highs/lows are extrema, not sums. Leaders are recalculated for the selected battle or campaign.
+- Each Foundry combat encounter is one battle. Create a new encounter for a new battle; resetting/reusing the same encounter combines its statistics. New events preserve the battle's name even if that encounter is later deleted.
 - A ★ marks the highest total in a category. Lowest downward roll uses the most negative result. Ties share the star. Zero counters have no leader.
 - The roster controls both new tracking and which characters appear. Removing a character hides existing totals without deleting the history; re-adding restores them. Time absent from the roster is not backfilled.
 - **Correct stats** adds a signed adjustment with a required reason. For an open-ended record, enter the actual raw total, not a delta; choose its roll scope first. To lower a mistaken high record or raise a mistaken low record, undo the incorrect event before entering the replacement.
 - Recent events shows the latest 40 entries for that history filter. **Undo / Restore** changes only the statistics; it never modifies actors, effects, rolls, HP, or the combat.
 - **Export** downloads the complete statistics ledger as JSON. It is an audit export, not an automatic import/restore feature.
-- Campaign history survives deleting chat messages and encounters. Deleted encounters retain their ID-based label. Back up the Foundry world to preserve all module settings.
+- Campaign history survives deleting chat messages and encounters. Older encounters without a stored name retain an ID-based label. Back up the Foundry world to preserve all module settings.
 - Only the active GM writes statistics, preventing multiple connected GMs/players from counting the same event. Only that GM can edit the roster or make corrections. The friendly roster and its statistics are shared with all world users.
 - The module setting **Record new combat statistics** pauses recording. Resume it before entering corrections.
 
@@ -75,9 +80,9 @@ Included tests run without dependencies on Node 24:
 npm test
 ```
 
-16 tests cover damage/bleeding separation, duplicate handling, GM-only writing, self-inflicted fumble consequences, critical severities, condition countdown, derived accuracy, open-ended chains and scopes, resistance grouping, ties, and undo/filter behavior.
+20 tests cover damage/bleeding separation, duplicate handling, GM-only writing, self-inflicted fumble consequences, critical severities, condition countdown, derived accuracy, open-ended chains and scopes, resistance grouping, ties, undo/filter behavior, post-negation dealt conditions, caster attribution, and battle/campaign aggregation for every counter.
 
-An isolated Edge browser harness also passed 24 parser/context checks and rendered three table views with no page errors. It used the installed Foundry 14.367 dice tooltip template. These tests do **not** substitute for a live Foundry integration test.
+An isolated Edge browser harness also passed 26 parser/context checks and rendered four table views with no page errors. It uses the installed Foundry dice tooltip template. These tests do **not** substitute for a live Foundry integration test.
 
 ### Live-world acceptance checks
 

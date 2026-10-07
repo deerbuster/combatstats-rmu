@@ -25,7 +25,7 @@ export class CombatStatsApp extends HandlebarsApplicationMixin(ApplicationV2) {
     const columns = GROUPS[this.group].columns;
     const crowns = Object.fromEntries(columns.map(([k]) => [k, leaders(stats, k)]));
     const encounterIds = [...new Set(Object.values(data.events).map(e => e.encounter))].filter(id => id !== "outside");
-    const names = id => game.combats.get(id)?.name ?? `Encounter ${id.slice(-6)}`;
+    const names = id => game.combats.get(id)?.name || Object.values(data.events).find(e => e.encounter === id && e.battleName)?.battleName || `Battle ${id.slice(-6)}`;
     const events = Object.values(data.events).filter(e => this.encounter === "all" || e.encounter === this.encounter)
       .sort((a, b) => b.at - a.at).slice(0, 40).map(e => ({
         id: e.id, void: e.void, kind: e.kind, when: new Date(e.at).toLocaleString(), round: e.round,
@@ -36,7 +36,7 @@ export class CombatStatsApp extends HandlebarsApplicationMixin(ApplicationV2) {
       enabled: game.settings.get(ID, "enabled"), gm: game.user.isGM, writer: isWriter(),
       hasGM: !!game.users.activeGM, totalEvents: Object.keys(data.events).length,
       groups: Object.entries(GROUPS).map(([id, g]) => ({id, label: g.label, selected: id === this.group})),
-      scopes: [{id: "all", label: "Campaign totals"}, {id: "outside", label: "Outside encounters"},
+      scopes: [{id: "all", label: "Campaign totals"}, {id: "outside", label: "Outside battles"},
         ...encounterIds.map(id => ({id, label: names(id)}))].map(s => ({...s, selected: s.id === this.encounter})),
       columns: columns.map(([key, name]) => ({key, name})),
       rows: ids.map(id => ({id, name: game.actors.get(id)?.name ?? "Removed character",
@@ -47,6 +47,7 @@ export class CombatStatsApp extends HandlebarsApplicationMixin(ApplicationV2) {
         .map(s => ({...s, selected: s.id === this.rollScope})),
       resistanceTypes: ["all", ...RESISTANCES].map(id => ({id, label: id === "all" ? "All resistance types" : id, selected: id === this.resistance})),
       criticals: ["criticals", "received"].includes(this.group), bleeding: this.group === "bleeding",
+      dealtConditions: this.group === "dealtConditions",
       rolls: this.group === "rolls", resistanceView: this.group === "resistance", events
     };
   }
@@ -98,7 +99,7 @@ export class CombatStatsApp extends HandlebarsApplicationMixin(ApplicationV2) {
     await mutate(next => {if (!next.events[id]) return false; next.events[id].void = !next.events[id].void;});
   }
   static exportData() {
-    const data = {module: ID, version: "0.1.0", exported: new Date().toISOString(), roster: roster(), ...state()};
+    const data = {module: ID, version: game.modules.get(ID).version, exported: new Date().toISOString(), roster: roster(), ...state()};
     const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type: "application/json"}));
     const anchor = document.createElement("a"); anchor.href = url; anchor.download = "combatstats-rmu.json"; anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);

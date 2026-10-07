@@ -17,7 +17,8 @@ export function mutate(fn) {
   return task;
 }
 export function context(combat = game.combat) {
-  return {encounter: combat?.started ? combat.id : "outside", round: combat?.round ?? 0};
+  return {encounter: combat?.started ? combat.id : "outside", round: combat?.round ?? 0,
+    battleName: combat?.started ? combat.name ?? "" : ""};
 }
 export function record(event) {
   if (!isWriter() || !game.settings.get(ID, "enabled")) return;

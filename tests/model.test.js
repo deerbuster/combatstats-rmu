@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {appliedAttack, conditionDelta, totals, leaders, emptyStats, putEvent, SEVERITIES, openEndedResult} from "../scripts/model.js";
+import {appliedAttack, conditionsDealt, conditionDelta, totals, leaders, emptyStats, putEvent, SEVERITIES, openEndedResult, KEYS, DERIVED_KEYS, RECORD_KEYS} from "../scripts/model.js";
 
 test("hit plus critical damage counts once; Attack Hits display metadata is excluded", () => {
   const stats = appliedAttack({attackerTokenId: "t", effects: [{effect:"Hits",value:17},{effect:"Attack Hits",value:10},{effect:"Bleed",value:3}]});
@@ -81,4 +81,27 @@ test("resistance successes and failures stay separated by type", () => {
   let row=totals(events,['a']).a;assert.equal(row.rrAttempts,6);assert.equal(row.rrSuccess,2);
   row=totals(events,['a'],'all','all','Fear').a;assert.equal(row.rrAttempts,3);assert.equal(row.rrRate,200/3);
   assert.equal(totals({},['a']).a.rrRate,null);
+});
+test("conditions dealt count result applications, not durations or AP", () => {
+  assert.deepEqual(conditionsDealt({effects:[{effect:'Stun',rounds:[4,0,2]},
+    {effect:'Stun',rounds:[1,0,0]},{effect:'Prone',count:3},{effect:'Staggered',value:4}]}),
+    {dealtStun25:1,dealtStun75:1,dealtProne:1,dealtStaggered:1});
+  assert.deepEqual(conditionsDealt({effects:[{effect:'heal-stun',value:3},{effect:'Stun',rounds:[0,-1,0]},{effect:'Bleed',value:3}]}),{});
+});
+test("every stored counter supports separate battle and campaign totals", () => {
+  const counters=KEYS.filter(k=>!DERIVED_KEYS.includes(k)&&!RECORD_KEYS.includes(k));
+  const delta=n=>Object.fromEntries(counters.map(k=>[k,n]));
+  const events={first:{encounter:'first',actors:{a:delta(2)}},second:{encounter:'second',actors:{a:delta(3)}}};
+  for(const key of counters){
+    assert.equal(totals(events,['a'],'first').a[key],2,key);
+    assert.equal(totals(events,['a'],'second').a[key],3,key);
+    assert.equal(totals(events,['a']).a[key],5,key);
+  }
+});
+test("battle records and rates are recalculated rather than summed", () => {
+  const events={first:{encounter:'first',rollKind:'attack',actors:{a:{strikes:1,misses:1,openHigh:200,openLow:-20,rrFearSuccess:1}}},
+    second:{encounter:'second',rollKind:'combat',actors:{a:{strikes:3,openHigh:150,openLow:-90,rrFearFailure:3}}}};
+  assert.equal(totals(events,['a'],'first').a.accuracy,50);
+  const all=totals(events,['a']).a;
+  assert.equal(all.accuracy,80);assert.equal(all.rrRate,25);assert.equal(all.openHigh,200);assert.equal(all.openLow,-90);
 });

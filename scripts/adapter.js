@@ -1,4 +1,4 @@
-import {ID, SEVERITIES, appliedAttack, conditionDelta, positive} from "./model.js";
+import {ID, SEVERITIES, appliedAttack, conditionsDealt, conditionDelta, positive} from "./model.js";
 import {context, isWriter, record, roster} from "./store.js";
 import {readOpenRolls, readResistance} from "./chat-records.js";
 
@@ -30,7 +30,7 @@ function receipt(message, result, applied) {
     delta = {fumbles: 1};
   } else if (applied && result.attackerTokenId && result.defenderTokenId && Array.isArray(result.effects)) {
     actor = sourceActor(message, result);
-    delta = appliedAttack(result);
+    delta = {...appliedAttack(result), ...conditionsDealt(result)};
   } else if (applied && Array.isArray(result.effects)) {
     // Scene critical and fumble consequence cards have no attacking actor.
     const target = tokenActor(message, result.defenderTokenId) ?? speakerActor(message);
@@ -39,7 +39,7 @@ function receipt(message, result, applied) {
     return {id: `attack:${message.id}`, kind: "Damage applied", ...context(),
       actors: compactActors({[targetId]: {hitsTaken: appliedAttack(result).hitsDealt, ...receivedCriticals(result)},
         ...(result.attackerTokenId && actorId(tokenActor(message, result.attackerTokenId)) !== targetId
-          ? {[actorId(tokenActor(message, result.attackerTokenId))]: {hitsDealt: appliedAttack(result).hitsDealt, bleedInflicted: appliedAttack(result).bleedInflicted}} : {})})};
+          ? {[actorId(tokenActor(message, result.attackerTokenId))]: {hitsDealt: appliedAttack(result).hitsDealt, bleedInflicted: appliedAttack(result).bleedInflicted, ...conditionsDealt(result)}} : {})})};
   } else return null;
   const id = actorId(actor);
   if (!id) return null;
