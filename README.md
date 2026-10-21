@@ -113,3 +113,14 @@ Replace this module folder with the next release while the world is closed. The 
 Integration inspected against the supplied system's `render-attack.js`, `hook-attack-chat-ws.js`, condition constructors, `render-rr.js`, `spoilers.js`, and combat-upkeep implementation. Original system files are not distributed here.
 
 Foundry's [ApplicationV2 documentation](https://foundryvtt.com/api/classes/foundry.applications.api.ApplicationV2.html), [document hooks](https://foundryvtt.com/api/modules/hookEvents.html), and [Roll API](https://foundryvtt.com/api/classes/foundry.dice.Roll.html) were checked alongside the local 14.367 implementation.
+
+
+## Version 0.4.0: spellcasting and additional conditions
+
+The Spellcasting view counts casting attempts, successful casts, failed casts, no-effect casts, targets resisting and targets failing RR. Multi-target casts count once; each actual target RR counts separately. Willing targets do not count as failed rolls. Triggered activations without casting rolls are excluded. Spell names are retained in event history/export. RR outcomes credit the caster when RMU provides an attacker token, but are not assigned to a named spell because RR cards do not retain that linkage.
+
+Additional conditions dealt/suffered views count fatigue, injuries, grapple, sleep, paralysis and dying/death effects. Dealt counts use final applied result effects, once per type per target card. Suffered counts use actual ActiveEffect creation or worsening fatigue/grapple, not remaining duration. Localized paralysis is an injury in RMU. Dying/death effects are not confirmed kills. Healing and countdown do not add applications. Existing records are preserved; new counters begin after updating. All counters support battle/campaign totals and leaders.
+
+Casting success, failed target RR and applied sleep are separate events. Installed RMU 1.4.131 uses casting total + twice caster level - range adjustment as the RR difficulty, comparing the target's modified resistance total against it. No spell mechanics are changed.
+
+Verified sources: module/rmu/chat/render-scr.js, render-rr.js, module/rmu/spell-casting/rr-range.js and resist.js, module/hooks/hook-attack-chat-ws.js and module/conditions/ constructors. Dealt effects require an applied result card with an attacker token; self/utility paths without that receipt may only produce suffered counters. Knockback and breakage instructions do not prove actual movement or broken gear and are not counted. Additional critical severities and hit/bleed values remain in their existing categories. Instantaneous damage still excludes bleeding.

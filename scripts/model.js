@@ -2,7 +2,13 @@ export const ID = "combatstats-rmu";
 export const SEVERITIES = ["Z", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 export const RESISTANCES = ["Channeling", "Essence", "Mentalism", "Physical", "Fear"];
 export const DERIVED_KEYS = ["accuracy", "rrSuccess", "rrFailure", "rrAttempts", "rrRate"];
+const EXTRA_CONDITIONS = [["fatigue", "Fatigue"], ["injury", "Injury"], ["grappled", "Grappled"],
+  ["sleep", "Sleep"], ["paralyzed", "Paralysis"], ["dying", "Dying/death effect"]];
 export const GROUPS = {
+  spells: {label: "Spellcasting", columns: [["spellsCast", "Casting attempts"], ["spellSuccess", "Successful casts"],
+    ["spellFailure", "Failed casts"], ["spellNoEffect", "No effect"], ["targetsResisted", "Targets resisted"], ["targetsFailedRR", "Targets failed RR"]]},
+  otherConditions: {label: "Additional conditions suffered", columns: EXTRA_CONDITIONS},
+  otherDealtConditions: {label: "Additional conditions dealt", columns: EXTRA_CONDITIONS.map(([key, label]) => [`dealt${key[0].toUpperCase()}${key.slice(1)}`, `${label} dealt`])},
   overview: {label: "Attacks & damage", columns: [
     ["strikes", "Successful strikes"], ["misses", "Misses"], ["fumbles", "Fumbles"],
     ["hitsDealt", "Hits dealt"], ["hitsTaken", "Hits taken"], ["accuracy", "Accuracy"]]},
@@ -50,6 +56,11 @@ export function conditionsDealt(result) {
     if (effect.effect === "Stun") [25, 50, 75].forEach((severity, i) => {
       if (positive(effect.rounds?.[i]) > 0) stats[`dealtStun${severity}`] = 1;
     });
+    const extra = {Fatigue: "Fatigue", Injury: "Injury", Grappled: "Grappled", sleep: "Sleep", paralyzed: "Paralyzed", Dying: "Dying"}[effect.effect];
+    if (extra && !(extra === "Fatigue" && number(effect.penalty) >= 0)) {
+      // Localized paralysis is represented by RMU as an injury instead.
+      stats[`dealt${extra === "Paralyzed" && effect.location ? "Injury" : extra}`] = 1;
+    }
     if (effect.effect === "Prone") stats.dealtProne = 1;
     if (effect.effect === "Staggered") stats.dealtStaggered = 1;
   }
@@ -70,7 +81,21 @@ export function conditionDelta(before, after) {
     ? {staggered: 1} : {};
   if (after.system?.effect === "Bleed") return {bleedSuffered: Math.max(0,
     positive(after.system.value) - positive(old?.system?.effect === "Bleed" ? old.system.value : 0))};
+  if (["sleep", "paralyzed"].includes(type)) return old ? {} : {[type]: 1};
+  if (type === "fatigue") return number(after.system?.penalty) < number(old?.system?.penalty) ? {fatigue: 1} : {};
+  if (type === "grappled") return positive(after.system?.value) > positive(old?.system?.value) ? {grappled: 1} : {};
+  if (type === "injury" && ["Injury", "Dying"].includes(after.system?.effect)) {
+    const same = old?.system?.effect === after.system.effect;
+    return !same ? {[after.system.effect === "Dying" ? "dying" : "injury"]: 1} : {};
+  }
   return {};
+}
+
+export function spellCast(rmu) {
+  const scr = rmu?.scr;
+  if (!scr || scr.triggered || !Number.isFinite(scr.resultCode)) return null;
+  return {spell: String(scr.spell?.name ?? rmu.conditions?.spell?.name ?? "Unknown spell"),
+    delta: {spellsCast: 1, [scr.resultCode > 0 ? "spellSuccess" : scr.resultCode < 0 ? "spellFailure" : "spellNoEffect"]: 1}};
 }
 
 export function totals(events, actorIds, encounter = "all", rollScope = "all", resistance = "all") {

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import {appliedAttack, conditionsDealt, conditionDelta, totals, leaders, emptyStats, putEvent, SEVERITIES, openEndedResult, KEYS, DERIVED_KEYS, RECORD_KEYS} from "../scripts/model.js";
+import {spellCast, appliedAttack, conditionsDealt, conditionDelta, totals, leaders, emptyStats, putEvent, SEVERITIES, openEndedResult, KEYS, DERIVED_KEYS, RECORD_KEYS} from "../scripts/model.js";
 
 test("hit plus critical damage counts once; Attack Hits display metadata is excluded", () => {
   const stats = appliedAttack({attackerTokenId: "t", effects: [{effect:"Hits",value:17},{effect:"Attack Hits",value:10},{effect:"Bleed",value:3}]});
@@ -105,3 +105,26 @@ test("battle records and rates are recalculated rather than summed", () => {
   const all=totals(events,['a']).a;
   assert.equal(all.accuracy,80);assert.equal(all.rrRate,25);assert.equal(all.openHigh,200);assert.equal(all.openLow,-90);
 });
+
+ test("spell attempts distinguish success, failure and no effect without counting triggered items", () => {
+  for (const [resultCode,key] of [[1,"spellSuccess"],[-1,"spellFailure"],[0,"spellNoEffect"]]) {
+    assert.deepEqual(spellCast({scr:{resultCode,spell:{name:"Golden Slumbers"}}}),
+      {spell:"Golden Slumbers",delta:{spellsCast:1,[key]:1}});
+  }
+  assert.equal(spellCast({scr:{triggered:true,resultCode:1}}),null);
+  assert.equal(spellCast({scr:{}}),null);
+ });
+ test("additional conditions distinguish applications from healing and countdown", () => {
+  assert.deepEqual(conditionsDealt({effects:[{effect:"sleep"},{effect:"sleep"},{effect:"Fatigue",penalty:-10},{effect:"Dying"}]}),
+    {dealtSleep:1,dealtFatigue:1,dealtDying:1});
+  const fatigue = penalty => ({type:"fatigue",system:{penalty}});
+  assert.deepEqual(conditionDelta(fatigue(-10),fatigue(-5)),{});
+  assert.deepEqual(conditionDelta(fatigue(-5),fatigue(-10)),{fatigue:1});
+  for (const type of ["sleep","paralyzed"]) {
+    assert.deepEqual(conditionDelta(null,{type}),{[type]:1});
+    assert.deepEqual(conditionDelta({type},{type}),{});
+  }
+  assert.deepEqual(conditionDelta(null,{type:"injury",system:{effect:"Dying"}}),{dying:1});
+  assert.deepEqual(conditionDelta(null,{type:"injury",system:{effect:"Injury"}}),{injury:1});
+  assert.deepEqual(conditionDelta(null,{type:"grappled",system:{value:25}}),{grappled:1});
+ });

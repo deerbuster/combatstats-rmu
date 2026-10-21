@@ -77,3 +77,26 @@ test('conditions dealt use final effects, remain deduplicated, and follow the ba
   const self=message('fumble-condition',{effects:[{effect:'Prone'}]});apply(self);await flush();
   assert.equal(totals(state().events,['a']).a.dealtProne,0,'source-free fumble consequence is not credited');
 });
+
+test('spell casts deduplicate, target RR credits caster, and applied sleep stays separate',async()=>{
+  const cast=message('slumbers-cast');
+  cast.flags.rmu.scr={resultCode:1,spell:{name:'Golden Slumbers'}};
+  call('createChatMessage',cast);call('createChatMessage',cast);await flush();
+  assert.equal(totals(state().events,['a']).a.spellsCast,1);
+  assert.equal(totals(state().events,['a']).a.dealtSleep,0);
+  globalThis.DOMParser=class {parseFromString(){return {querySelector(selector){
+    if(selector==='.rmu-chat-resistance-icon')return {textContent:'Mentalism'};
+    if(selector==='[data-rmu-redact="result"]')return {querySelector:()=>({textContent:'Failure'})};
+    return null;
+  },querySelectorAll:()=>[]};}};
+  game.i18n={localize:key=>key.split('.').at(-1)};
+  const rr=message('slumbers-rr',{attackerTokenId:'ta',effects:[{effect:'sleep'}]});
+  rr.speaker={scene:'scene',token:'enemy',actor:'enemy'};
+  call('createChatMessage',rr);await flush();
+  assert.equal(totals(state().events,['a']).a.targetsFailedRR,1);
+  assert.equal(totals(state().events,['a']).a.dealtSleep,0);
+  apply(rr);await flush();
+  assert.equal(totals(state().events,['a']).a.dealtSleep,1);
+  assert.equal(totals(state().events,['a']).a.spellsCast,1);
+  delete globalThis.DOMParser;
+});

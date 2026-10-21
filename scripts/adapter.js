@@ -1,4 +1,4 @@
-import {ID, SEVERITIES, appliedAttack, conditionsDealt, conditionDelta, positive} from "./model.js";
+import {ID, SEVERITIES, appliedAttack, conditionsDealt, conditionDelta, spellCast, positive} from "./model.js";
 import {context, isWriter, record, roster} from "./store.js";
 import {readOpenRolls, readResistance} from "./chat-records.js";
 import {findCombat} from "./battles.js";
@@ -66,14 +66,26 @@ function createMessage(message) {
     || Object.hasOwn(rmu?.result ?? {}, "fumbleRollTableUUID");
   const rollActor = isAttack ? sourceActor(message, rmu.result) : speakerActor(message);
   const id = actorId(rollActor);
+  const cast = spellCast(rmu);
+  if (id && cast) record({id: `spell:${message.id}`, kind: `Spellcasting: ${cast.spell}`, spell: cast.spell,
+    ...messageContext(message, rmu?.conditions), actors: {[id]: cast.delta}});
   if (id && roster().includes(id) && typeof DOMParser !== "undefined") {
     const rollContext = messageContext(message, rmu?.result);
     const rollKind = isAttack ? "attack" : rollContext.encounter !== "outside" ? "combat" : "character";
     readOpenRolls(message).forEach((roll, i) => record({id: `roll:${message.id}:${i}`, kind: `Open-ended ${rollKind} roll`, rollKind,
       ...rollContext, actors: {[id]: {[roll.key]: roll.value}}}));
+  }
+  // A hostile target can be outside the friendly roster; still credit its caster.
+  if (typeof DOMParser !== "undefined") {
     const resistance = readResistance(message, key => game.i18n.localize(key));
-    if (resistance) record({id: `rr:${message.id}`, kind: `${resistance.type} resistance: ${resistance.success ? "success" : "failure"}`,
-      ...rollContext, actors: {[id]: {[`rr${resistance.type}${resistance.success ? "Success" : "Failure"}`]: 1}}});
+    if (resistance) {
+      const casterId = actorId(tokenActor(message, rmu?.result?.attackerTokenId));
+      const actors = {};
+      if (id) actors[id] = {[`rr${resistance.type}${resistance.success ? "Success" : "Failure"}`]: 1};
+      if (casterId) actors[casterId] = {...actors[casterId], [resistance.success ? "targetsResisted" : "targetsFailedRR"]: 1};
+      record({id: `rr:${message.id}`, kind: `${resistance.type} resistance: ${resistance.success ? "success" : "failure"}`,
+        ...messageContext(message, rmu?.result), actors});
+    }
   }
   if (!rmu) return;
   const event = receipt(message, rmu.result, rmu.applied === true);
